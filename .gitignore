@@ -8,10 +8,13 @@ dist
 .DS_Store
 *.tsbuildinfo
 
-# Secretos. La negación de .env.example va AL FINAL a propósito: en .gitignore
-# gana la última regla que coincide, así que un `.env*` agregado más abajo
-# (`vercel link` lo hace) volvería a ignorar la plantilla. Si alguna herramienta
-# vuelve a apendar `.env*`, muévelo arriba de estas tres líneas.
+# Secretos. Ignora todo archivo .env excepto la plantilla.
+#
+# OJO con el orden: en .gitignore gana la ÚLTIMA regla que coincide, y la CLI de
+# Vercel apenda `.env*` al final cada vez que corre `vercel link` o
+# `vercel env pull`. Cuando eso pasa, .env.example vuelve a quedar ignorado.
+# Si ves un `.env*` debajo de esta línea, muévelo arriba del bloque.
+# `npm run check:secretos` detecta la regresión automáticamente.
 .env
 .env.*
 !.env.example
