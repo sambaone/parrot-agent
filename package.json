@@ -1,5 +1,5 @@
 {
-  "name": "_scaffold",
+  "name": "standup-agent",
   "version": "0.0.0",
   "type": "module",
   "imports": {
