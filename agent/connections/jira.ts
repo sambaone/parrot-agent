@@ -9,17 +9,21 @@ import { requiredEnv } from "../lib/env";
  *
  * Notas de diseño:
  *
- * - **App-scoped, no user-scoped.** El standup diario lo dispara un schedule con
- *   el principal de la aplicación (`appAuth`), que no es un usuario. Una conexión
- *   user-scoped (`connect("<uid>")`, el default) fallaría ahí con
- *   `principal_required` porque no hay nadie a quien pedirle OAuth. Con
- *   `principalType: "app"` la conexión usa un token compartido del agente y
- *   funciona igual desde el cron y desde una pregunta en Slack.
+ * - **User-scoped, no app-scoped.** No es una preferencia: el conector de
+ *   Atlassian en Vercel Connect reporta `supportedSubjectTypes: ["user"]`, o
+ *   sea que no puede emitir un token de aplicación. Una persona autoriza Jira
+ *   una vez desde Slack y ese grant queda guardado en Connect.
+ * - **El cron reutiliza ese grant.** Como no hay token de app, el schedule
+ *   despacha con el principal de esa persona en lugar de `appAuth`; ver
+ *   `lib/slack-principal.ts` para el detalle y la advertencia de versión.
  * - **`auth` como función.** Diferir la lectura del entorno hasta la primera
  *   llamada mantiene el arranque de `eve dev` sano antes de que exista el
  *   conector, en lugar de tumbar el servidor al cargar el módulo.
  * - **Sin tokens en código.** Vercel Connect es dueño del consentimiento, el
  *   almacenamiento cifrado y el refresh; el modelo nunca ve la URL ni el token.
+ * - **Solo lectura.** `tools.allow` no se usa porque los nombres de las tools
+ *   los publica el servidor de Atlassian, no nosotros; la restricción de
+ *   escritura se hace con `approval` y en las instrucciones del agente.
  */
 export default defineMcpClientConnection({
   url: "https://mcp.atlassian.com/v1/mcp",
@@ -35,6 +39,6 @@ export default defineMcpClientConnection({
         "Es el UID del conector de Vercel Connect para Atlassian, ej. " +
           "mcp.atlassian.com/jira. Lo devuelve `vercel connect create mcp.atlassian.com --name jira`.",
       ),
-      principalType: "app",
+      principalType: "user",
     }),
 });

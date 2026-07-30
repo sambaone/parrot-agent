@@ -2,6 +2,7 @@ import { defineSchedule } from "eve/schedules";
 
 import slack from "../channels/slack";
 import { requiredEnv } from "../lib/env";
+import { standupSlackPrincipal } from "../lib/slack-principal";
 
 /**
  * Standup diario en Slack.
@@ -16,7 +17,7 @@ import { requiredEnv } from "../lib/env";
 export default defineSchedule({
   cron: "0 15 * * 1-5",
 
-  async run({ receive, waitUntil, appAuth }) {
+  async run({ receive, waitUntil }) {
     // El ID del canal es configuración de entorno: nunca se hardcodea.
     const channelId = requiredEnv(
       "STANDUP_SLACK_CHANNEL_ID",
@@ -30,7 +31,10 @@ export default defineSchedule({
           "Consulta Jira en vivo y sigue exactamente el formato de tus " +
           "instrucciones. Postea el resumen completo aunque no haya alertas.",
         target: { channelId },
-        auth: appAuth,
+        // No se usa `appAuth`: la conexión a Jira es user-scoped por
+        // limitación del conector de Atlassian, así que el cron corre bajo el
+        // principal de la persona que autorizó Jira. Ver lib/slack-principal.ts.
+        auth: standupSlackPrincipal(channelId),
       }),
     );
   },

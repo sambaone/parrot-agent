@@ -1,7 +1,4 @@
 node_modules
-.env
-.env.*
-!.env.example
 .eve
 .vercel
 .next
@@ -10,3 +7,11 @@ node_modules
 dist
 .DS_Store
 *.tsbuildinfo
+
+# Secretos. La negación de .env.example va AL FINAL a propósito: en .gitignore
+# gana la última regla que coincide, así que un `.env*` agregado más abajo
+# (`vercel link` lo hace) volvería a ignorar la plantilla. Si alguna herramienta
+# vuelve a apendar `.env*`, muévelo arriba de estas tres líneas.
+.env
+.env.*
+!.env.example
