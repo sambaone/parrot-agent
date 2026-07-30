@@ -77,9 +77,24 @@ npx eve info         # capacidades descubiertas y diagnósticos
 EVE_DEV_AS_STANDUP_USER=1 npm run dev
 ```
 
-Requiere que `STANDUP_AS_SLACK_USER_ID` ya haya autorizado Atlassian una vez
-desde Slack; local reutiliza ese grant. El shim está triple-candado (nunca en
-Vercel, solo con el opt-in, solo en loopback) — ver `agent/channels/eve.ts`.
+El shim está triple-candado (nunca en Vercel, solo con el opt-in, solo en
+loopback) — ver `agent/channels/eve.ts`.
+
+**Verificado el 2026-07-30: esto NO alcanza para llegar a Jira desde local.** El
+diseño asumía que local reutilizaría el grant que `STANDUP_AS_SLACK_USER_ID`
+otorgó desde Slack, porque la caché de tokens se llavea por `issuer` +
+`principalId` y el shim reproduce el mismo `principalId`. La prueba dice otra
+cosa: con el grant ya otorgado y funcionando en producción, `eve dev` sigue
+emitiendo `authorization.required` con un código nuevo. La causa probable es que
+el `issuer` de OIDC en local no coincide con el del deployment, así que la llave
+no empata.
+
+Completar ese OAuth desde local tampoco es opción: eve estaciona el turno en un
+webhook `http://localhost:2000/...` que Vercel Connect no puede alcanzar.
+
+Consecuencia práctica: **el formato del standup se itera contra producción**, no
+en local. En local solo se valida que el agente arranca, que las tools propias
+responden (`ventana_de_standup` sí funciona sin Jira) y que compila.
 
 Slack **no** se puede probar en localhost: los eventos entran por Vercel Connect
 al deployment. En local solo se valida lógica y formato.
@@ -108,7 +123,7 @@ Todo es configuración de entorno. Ningún valor se hardcodea.
 | **Canal de Slack** | `vercel env rm STANDUP_SLACK_CHANNEL_ID production` y vuelve a agregarlo con el nuevo ID (`C...`). Invita al bot al canal nuevo. Redeploy. |
 | **Proyecto de Jira** | Igual con `JIRA_PROJECT_KEY` (ej. `PROY`). |
 | **Horario** | Edita `cron` en `agent/schedules/daily-standup.ts` y redeploya. **Vercel evalúa el cron en UTC.** CDMX es UTC-6 todo el año (México no aplica horario de verano), así que resta 6: `"0 15 * * 1-5"` = 9:00 AM CDMX, lunes a viernes. |
-| **Formato del resumen** | `agent/instructions.md`. Itera con `EVE_DEV_AS_STANDUP_USER=1 npm run dev` antes de desplegar. |
+| **Formato del resumen** | `agent/instructions.md`. Se itera desplegando y mencionando al bot en Slack; local no llega a Jira (ver arriba). |
 | **Modelo** | `agent/agent.ts`. Acepta un id del AI Gateway. |
 | **Quién autoriza Jira** | `STANDUP_AS_SLACK_USER_ID`. La persona nueva debe autorizar Atlassian mencionando al bot en Slack; el cron usa su grant. |
 
@@ -128,6 +143,35 @@ canal de Slack de eve. La caché de tokens de conexión se llavea por `issuer` +
 `node_modules/eve/dist/src/public/channels/slack/auth.js` siga armándolos igual.
 Si cambia, el cron deja de encontrar el grant y vuelve a pedir OAuth — falla
 ruidosa, no silenciosa.
+
+## Precondición en Atlassian: el allowlist de dominios del Rovo MCP server
+
+El conector de Jira es el **Atlassian Rovo MCP server**, y ese server solo acepta
+flujos de OAuth 2.1 cuyo origen esté en un allowlist que controla el admin de la
+organización de Atlassian. Vercel **no** es socio de IA de Atlassian: la lista de
+"Atlassian-supported domains" trae `claude.ai`, `chatgpt.com`, `cursor://`,
+`vscode.dev` y demás, pero no `connect.vercel.com`, que es de donde sale el
+redirect de Vercel Connect.
+
+Sin ese dominio autorizado, quien intente autorizar Jira recibe un error de
+permisos aunque sea admin de la organización. El síntoma engaña: parece un
+problema de rol y en realidad es de dominio.
+
+El arreglo, una sola vez por organización, en admin.atlassian.com →
+**Rovo → Rovo MCP server → Domains → Your domains → Add domain**:
+
+```
+https://connect.vercel.com/**
+```
+
+Hecho en la org `<org-de-atlassian>` el 2026-07-30. Si el agente se despliega contra otra
+organización de Atlassian, hay que repetirlo ahí.
+
+Vale la pena saber el alcance de lo que se autoriza: `connect.vercel.com` es
+infraestructura compartida de Vercel Connect, no un dominio propio. Autorizarlo
+habilita el origen, no una app específica. El acceso sigue acotado porque cada
+persona consiente explícitamente y el token queda limitado a sus propios permisos
+de Jira.
 
 ## Trabajando en este repo
 
