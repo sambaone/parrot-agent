@@ -1,5 +1,5 @@
 import { connectSlackCredentials } from "@vercel/connect/eve";
-import { slackChannel } from "eve/channels/slack";
+import { defaultSlackAuth, slackChannel } from "eve/channels/slack";
 
 import { requiredEnvInProduction } from "../lib/env";
 
@@ -29,14 +29,37 @@ export default slackChannel({
    * Permite seguir la conversación sin volver a mencionar al bot: contesta en
    * DMs, cuando lo mencionan, y en cualquier thread que ya tenga una sesión
    * activa — que es el caso del thread del standup diario.
+   *
+   * ## Por qué devuelve `defaultSlackAuth` y no `{ auth: null }`
+   *
+   * `auth: null` deja la sesión SIN principal de usuario. La conexión a Jira es
+   * user-scoped (el conector de Atlassian no emite tokens de aplicación), así
+   * que sin usuario toda llamada a Jira muere con
+   * `ConnectionAuthorizationFailedError ... reason: "principal_required"`.
+   *
+   * Ese es justo el bug que rompió la primera prueba en Slack: definir
+   * `onMessage` también reemplaza los handlers default de menciones y DMs, que
+   * son los que normalmente adjuntan el principal del remitente. Al tomar el
+   * control hay que adjuntarlo a mano.
+   *
+   * `defaultSlackAuth` arma el mismo principal (`slack:<team>:<user>` con
+   * `issuer: slack:<team>`) que reproduce `lib/slack-principal.ts` para el cron,
+   * así que la autorización de Atlassian que se otorga desde Slack es la misma
+   * que reutiliza el standup automático.
    */
   async onMessage(ctx, message) {
-    if (message.author?.isBot) return null;
+    // Sin autor no hay principal que adjuntar (mensajes de sistema, ediciones).
+    if (!message.author || message.author.isBot) return null;
 
     const esDirecto = message.raw.channel_type === "im";
     const debeResponder =
       esDirecto || ctx.isBotMentioned() || (await ctx.isSubscribed());
 
-    return debeResponder ? { auth: null } : null;
+    if (!debeResponder) return null;
+
+    // Los handlers default hacen esto; al sobrescribirlos hay que replicarlo.
+    await ctx.thread.startTyping("Pensando...");
+
+    return { auth: defaultSlackAuth(message, ctx) };
   },
 });
