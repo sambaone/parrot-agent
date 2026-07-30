@@ -18,6 +18,18 @@ export function requiredEnv(name: string, hint: string): string {
 }
 
 /**
+ * Lee una variable que mejora el comportamiento pero no es indispensable.
+ *
+ * Devuelve `undefined` si falta, sin advertir: quien la consume tiene que
+ * funcionar igual sin ella, solo peor. Se usa para `JIRA_CLOUD_ID`, que le
+ * ahorra al agente descubrir el cloudId en cada sesión pero cuyo descubrimiento
+ * sigue existiendo como respaldo.
+ */
+export function optionalEnv(name: string): string | undefined {
+  return process.env[name]?.trim() || undefined;
+}
+
+/**
  * Igual que `requiredEnv`, pero en desarrollo local devuelve un placeholder en
  * lugar de fallar.
  *
