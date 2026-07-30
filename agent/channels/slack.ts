@@ -1,7 +1,8 @@
 import { connectSlackCredentials } from "@vercel/connect/eve";
-import { defaultSlackAuth, slackChannel } from "eve/channels/slack";
+import { slackChannel } from "eve/channels/slack";
 
 import { requiredEnvInProduction } from "../lib/env";
+import { standupSlackPrincipal } from "../lib/slack-principal";
 
 /**
  * Canal de Slack del standup.
@@ -26,40 +27,52 @@ export default slackChannel({
   threadContext: { since: "last-agent-reply" },
 
   /**
-   * Permite seguir la conversación sin volver a mencionar al bot: contesta en
-   * DMs, cuando lo mencionan, y en cualquier thread que ya tenga una sesión
-   * activa — que es el caso del thread del standup diario.
+   * ## Cuándo responde: solo mención explícita o DM
    *
-   * ## Por qué devuelve `defaultSlackAuth` y no `{ auth: null }`
+   * Antes esta condición incluía `ctx.isSubscribed()`, con la idea de poder
+   * seguir preguntando en el thread del standup sin volver a mencionar al bot.
+   * En la práctica eso lo volvió intrusivo: `isSubscribed()` comprueba si el
+   * mensaje pertenece a un thread con sesión activa, y el standup diario se
+   * postea AL CANAL, no a un thread. La sesión queda ligada al canal entero, así
+   * que cualquier mensaje suelto ahí calificaba y el bot se metía en
+   * conversaciones que no eran con él.
    *
-   * `auth: null` deja la sesión SIN principal de usuario. La conexión a Jira es
-   * user-scoped (el conector de Atlassian no emite tokens de aplicación), así
-   * que sin usuario toda llamada a Jira muere con
+   * El precio de quitarlo es que las preguntas de seguimiento dentro del thread
+   * también necesitan `@`. Es un precio aceptado a cambio de que el canal esté
+   * en silencio salvo que alguien lo llame.
+   *
+   * ## Por qué siempre adjunta el principal del standup
+   *
+   * `auth: null` deja la sesión SIN principal de usuario, y como la conexión a
+   * Jira es user-scoped (el conector de Atlassian no emite tokens de
+   * aplicación), toda llamada a Jira moriría con
    * `ConnectionAuthorizationFailedError ... reason: "principal_required"`.
    *
-   * Ese es justo el bug que rompió la primera prueba en Slack: definir
-   * `onMessage` también reemplaza los handlers default de menciones y DMs, que
-   * son los que normalmente adjuntan el principal del remitente. Al tomar el
-   * control hay que adjuntarlo a mano.
+   * Pero adjuntar el principal de QUIEN ESCRIBE —lo que hace `defaultSlackAuth`
+   * y lo que hacía este handler— tiene un efecto que en un canal de equipo no
+   * se quiere: cada persona nueva que le habla al bot es, para Vercel Connect,
+   * un usuario sin grant, y recibe una pantalla de OAuth de Atlassian en vez de
+   * una respuesta.
    *
-   * `defaultSlackAuth` arma el mismo principal (`slack:<team>:<user>` con
-   * `issuer: slack:<team>`) que reproduce `lib/slack-principal.ts` para el cron,
-   * así que la autorización de Atlassian que se otorga desde Slack es la misma
-   * que reutiliza el standup automático.
+   * Por eso todas las sesiones corren bajo el principal de
+   * `STANDUP_AS_SLACK_USER_ID`, el mismo que ya usa el cron. Nadie más tiene que
+   * autorizar nada.
+   *
+   * **La contrapartida, explícita:** cualquiera que pueda escribirle al bot lee
+   * Jira con los permisos de esa persona, y Jira no distingue quién preguntó.
+   * Si algún día el canal deja de ser de confianza, esto se revierte volviendo a
+   * `defaultSlackAuth(message, ctx)` y asumiendo el OAuth por persona.
    */
   async onMessage(ctx, message) {
-    // Sin autor no hay principal que adjuntar (mensajes de sistema, ediciones).
+    // Sin autor no hay nada que atender (mensajes de sistema, ediciones).
     if (!message.author || message.author.isBot) return null;
 
     const esDirecto = message.raw.channel_type === "im";
-    const debeResponder =
-      esDirecto || ctx.isBotMentioned() || (await ctx.isSubscribed());
-
-    if (!debeResponder) return null;
+    if (!esDirecto && !ctx.isBotMentioned()) return null;
 
     // Los handlers default hacen esto; al sobrescribirlos hay que replicarlo.
     await ctx.thread.startTyping("Pensando...");
 
-    return { auth: defaultSlackAuth(message, ctx) };
+    return { auth: standupSlackPrincipal(message.channelId) };
   },
 });
