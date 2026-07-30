@@ -96,14 +96,30 @@ Consecuencia práctica: **el formato del standup se itera contra producción**, 
 en local. En local solo se valida que el agente arranca, que las tools propias
 responden (`ventana_de_standup` sí funciona sin Jira) y que compila.
 
-Slack **no** se puede probar en localhost: los eventos entran por Vercel Connect
-al deployment. En local solo se valida lógica y formato.
+Slack **de entrada** no se puede probar en localhost: los eventos entran por
+Vercel Connect al deployment, no a tu máquina. Pero **la salida sí sale de
+verdad** — cualquier cosa que el agente entregue a ese canal desde `eve dev`
+aterriza en el canal real. Asimetría fácil de olvidar: no escuchas, pero hablas.
 
 `eve dev` nunca dispara schedules por su cron. Para forzar uno:
 
 ```bash
 curl -X POST http://localhost:2000/eve/v1/dev/schedules/daily-standup
 ```
+
+> **Esto NO es una prueba local: postea en el canal real de Slack.** Lo local es
+> el cómputo, no la entrega — el schedule despacha por Vercel Connect, que
+> alcanza Slack igual desde tu máquina que desde el deployment. Y como en local
+> no hay grant de Jira, lo que llega al canal es el prompt de
+> `authorization.required` ("conecta Jira para continuar"), no un standup.
+> Verificado a las malas el 2026-07-30. Para validar el agente sin escribirle al
+> equipo, usa el canal HTTP, que responde por la misma conexión y no toca Slack:
+>
+> ```bash
+> curl -X POST http://localhost:2000/eve/v1/session \
+>   -H 'content-type: application/json' -d '{"message":"..."}'
+> curl -N http://localhost:2000/eve/v1/session/<sessionId>/stream
+> ```
 
 ## Deploy
 
