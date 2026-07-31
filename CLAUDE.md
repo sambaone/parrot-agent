@@ -42,7 +42,7 @@ agent/
 ├── schedules/
 │   └── daily-standup.ts         Cron y entrega al canal
 ├── tools/
-│   └── ventana_de_standup.ts    Fechas de referencia y clave del proyecto
+│   └── ventana_de_standup.ts    Fechas de referencia, clave del proyecto y cloudId
 └── lib/
     ├── env.ts                   Lectura de variables de entorno
     ├── fechas.ts                Aritmética de días hábiles en hora de CDMX
@@ -96,14 +96,30 @@ Consecuencia práctica: **el formato del standup se itera contra producción**, 
 en local. En local solo se valida que el agente arranca, que las tools propias
 responden (`ventana_de_standup` sí funciona sin Jira) y que compila.
 
-Slack **no** se puede probar en localhost: los eventos entran por Vercel Connect
-al deployment. En local solo se valida lógica y formato.
+Slack **de entrada** no se puede probar en localhost: los eventos entran por
+Vercel Connect al deployment, no a tu máquina. Pero **la salida sí sale de
+verdad** — cualquier cosa que el agente entregue a ese canal desde `eve dev`
+aterriza en el canal real. Asimetría fácil de olvidar: no escuchas, pero hablas.
 
 `eve dev` nunca dispara schedules por su cron. Para forzar uno:
 
 ```bash
 curl -X POST http://localhost:2000/eve/v1/dev/schedules/daily-standup
 ```
+
+> **Esto NO es una prueba local: postea en el canal real de Slack.** Lo local es
+> el cómputo, no la entrega — el schedule despacha por Vercel Connect, que
+> alcanza Slack igual desde tu máquina que desde el deployment. Y como en local
+> no hay grant de Jira, lo que llega al canal es el prompt de
+> `authorization.required` ("conecta Jira para continuar"), no un standup.
+> Verificado a las malas el 2026-07-30. Para validar el agente sin escribirle al
+> equipo, usa el canal HTTP, que responde por la misma conexión y no toca Slack:
+>
+> ```bash
+> curl -X POST http://localhost:2000/eve/v1/session \
+>   -H 'content-type: application/json' -d '{"message":"..."}'
+> curl -N http://localhost:2000/eve/v1/session/<sessionId>/stream
+> ```
 
 ## Deploy
 
@@ -122,6 +138,7 @@ Todo es configuración de entorno. Ningún valor se hardcodea.
 |---|---|
 | **Canal de Slack** | `vercel env rm STANDUP_SLACK_CHANNEL_ID production` y vuelve a agregarlo con el nuevo ID (`C...`). Invita al bot al canal nuevo. Redeploy. |
 | **Proyecto de Jira** | Igual con `JIRA_PROJECT_KEY` (ej. `PROY`). |
+| **Sitio de Jira** | `JIRA_CLOUD_ID`, el UUID del sitio de Atlassian. Es opcional: sin él el agente lo redescubre solo, pero gastando entre 6 y 20 tool calls por sesión. Si cambias de sitio y no lo actualizas, el agente usa uno inválido y la primera llamada a Jira falla. |
 | **Horario** | Edita `cron` en `agent/schedules/daily-standup.ts` y redeploya. **Vercel evalúa el cron en UTC.** CDMX es UTC-6 todo el año (México no aplica horario de verano), así que resta 6: `"0 15 * * 1-5"` = 9:00 AM CDMX, lunes a viernes. |
 | **Formato del resumen** | `agent/instructions.md`. Se itera desplegando y mencionando al bot en Slack; local no llega a Jira (ver arriba). |
 | **Modelo** | `agent/agent.ts`. Acepta un id del AI Gateway. |
