@@ -21,9 +21,13 @@ import { requiredEnv } from "../lib/env";
  *   conector, en lugar de tumbar el servidor al cargar el módulo.
  * - **Sin tokens en código.** Vercel Connect es dueño del consentimiento, el
  *   almacenamiento cifrado y el refresh; el modelo nunca ve la URL ni el token.
- * - **Solo lectura.** `tools.allow` no se usa porque los nombres de las tools
- *   los publica el servidor de Atlassian, no nosotros; la restricción de
- *   escritura se hace con `approval` y en las instrucciones del agente.
+ * - **La escritura está abierta.** No hay `tools.allow` ni `approval`: los
+ *   nombres de las tools los publica el servidor de Atlassian, no nosotros, y el
+ *   token hereda los permisos de Jira de quien autorizó. O sea que el agente
+ *   puede crear y modificar tickets. Lo único que lo acota son las
+ *   instrucciones (`instructions.md` → "Escritura en Jira"): escribe solo si se
+ *   lo piden, y para tickets nuevos pregunta antes si van al backlog o al sprint
+ *   activo.
  */
 export default defineMcpClientConnection({
   url: "https://mcp.atlassian.com/v1/mcp",
