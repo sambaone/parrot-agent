@@ -42,6 +42,7 @@ agent/
 ├── schedules/
 │   └── daily-standup.ts         Cron y entrega al canal
 ├── tools/
+│   ├── avance_de_sprint.ts      Barra, porcentaje y días hábiles del encabezado
 │   └── ventana_de_standup.ts    Fechas de referencia, clave del proyecto y cloudId
 └── lib/
     ├── env.ts                   Lectura de variables de entorno
@@ -141,6 +142,7 @@ Todo es configuración de entorno. Ningún valor se hardcodea.
 | **Sitio de Jira** | `JIRA_CLOUD_ID`, el UUID del sitio de Atlassian. Es opcional: sin él el agente lo redescubre solo, pero gastando entre 6 y 20 tool calls por sesión. Si cambias de sitio y no lo actualizas, el agente usa uno inválido y la primera llamada a Jira falla. |
 | **Horario** | Edita `cron` en `agent/schedules/daily-standup.ts` y redeploya. **Vercel evalúa el cron en UTC.** CDMX es UTC-6 todo el año (México no aplica horario de verano), así que resta 6: `"0 15 * * 1-5"` = 9:00 AM CDMX, lunes a viernes. |
 | **Formato del resumen** | `agent/instructions.md`. Se itera desplegando y mencionando al bot en Slack; local no llega a Jira (ver arriba). |
+| **Corte resumen/detalle** | El standup se entrega en dos mensajes: el resumen al canal y el detalle en su thread. El agente los separa con una línea `---detalle---` y `agent/channels/slack.ts` parte ahí en su handler de `message.completed`. Si cambias la marca, cámbiala en los dos lados. |
 | **Modelo** | `agent/agent.ts`. Acepta un id del AI Gateway. |
 | **Quién autoriza Jira** | `STANDUP_AS_SLACK_USER_ID`. La persona nueva debe autorizar Atlassian mencionando al bot en Slack; el cron usa su grant. |
 

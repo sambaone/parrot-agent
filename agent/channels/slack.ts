@@ -5,6 +5,49 @@ import { requiredEnvInProduction } from "../lib/env";
 import { standupSlackPrincipal } from "../lib/slack-principal";
 
 /**
+ * Marca con la que el agente parte el standup en dos entregas. Va sola en su
+ * línea; ver "El standup diario" en `agent/instructions.md`.
+ */
+const MARCA_DE_DETALLE = "---detalle---";
+
+/**
+ * Parte la salida del agente en lo que va al canal y lo que va al thread.
+ *
+ * Devuelve `detalle: null` cuando no hay marca —el caso normal de cualquier
+ * respuesta de seguimiento—, y entonces el mensaje se postea entero, como
+ * siempre.
+ */
+export function partirEnResumenYDetalle(mensaje: string): {
+  resumen: string;
+  detalle: string | null;
+} {
+  const lineas = mensaje.split("\n");
+  const corte = lineas.findIndex(
+    (linea) => linea.trim().toLowerCase() === MARCA_DE_DETALLE,
+  );
+  if (corte === -1) return { resumen: mensaje, detalle: null };
+
+  const resumen = lineas.slice(0, corte).join("\n").trim();
+  const detalle = lineas.slice(corte + 1).join("\n").trim();
+
+  // Una marca sin nada de un lado no parte nada: se postea lo que haya como un
+  // solo mensaje. Postear un mensaje vacío es un error de Slack, no un caso
+  // borde silencioso.
+  if (!resumen) return { resumen: detalle || mensaje, detalle: null };
+  if (!detalle) return { resumen, detalle: null };
+
+  return { resumen, detalle };
+}
+
+function primeraLineaNoVacia(texto: string): string | null {
+  for (const linea of texto.split("\n")) {
+    const limpia = linea.trim();
+    if (limpia) return limpia;
+  }
+  return null;
+}
+
+/**
  * Canal de Slack del standup.
  *
  * Las credenciales (bot token de salida y verificación de webhooks de entrada)
@@ -74,5 +117,45 @@ export default slackChannel({
     await ctx.thread.startTyping("Pensando...");
 
     return { auth: standupSlackPrincipal(message.channelId) };
+  },
+
+  events: {
+    /**
+     * Sobrescribe la entrega para poder mandar DOS mensajes: el resumen al
+     * canal y el detalle como respuesta en su thread.
+     *
+     * Funciona por cómo `buildSlackBinding` maneja el `threadTs`. La sesión del
+     * cron arranca sin thread, así que el primer `post` sale al canal; ese post
+     * fija el `threadTs` del binding al `ts` del mensaje recién creado, y el
+     * segundo `post` ya cae dentro de ese thread. Los dos posts tienen que
+     * ocurrir en la MISMA invocación del handler, que es donde vive ese
+     * binding.
+     *
+     * Las ramas que no parten el mensaje replican el handler default de eve
+     * (`node_modules/eve/dist/src/public/channels/slack/defaults.js`): sin
+     * ellas se pierden los indicadores de "escribiendo" y la narración previa
+     * a cada tool call.
+     */
+    async "message.completed"(evento, canal) {
+      // Texto que acompaña a una tool call: no es respuesta, es narración. El
+      // default lo guarda para usarlo como etiqueta del indicador de typing.
+      if (evento.finishReason === "tool-calls") {
+        canal.state.pendingToolCallMessage = evento.message
+          ? primeraLineaNoVacia(evento.message)
+          : null;
+        return;
+      }
+
+      canal.state.pendingToolCallMessage = null;
+
+      if (!evento.message) {
+        await canal.thread.startTyping();
+        return;
+      }
+
+      const { resumen, detalle } = partirEnResumenYDetalle(evento.message);
+      await canal.thread.post(resumen);
+      if (detalle) await canal.thread.post(detalle);
+    },
   },
 });
