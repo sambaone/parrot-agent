@@ -38,6 +38,21 @@ export default defineMcpClientConnection({
     "responsable y cuándo se movió por última vez un ticket. Acepta búsquedas JQL.",
   auth: () =>
     connect({
+      // Este conector se crea a mano (`vercel connect create`) y se attachea al
+      // proyecto una sola vez; el repo no lo aprovisiona en runtime.
+      //
+      // Sin este `false`, cada petición de token empieza por un
+      // `POST /v1/connect/connectors/managed/oauth` que crea el conector si no
+      // existiera. En este equipo ese POST responde 403 "Project OIDC connector
+      // provisioning is not allowed", y el error se lleva por delante la
+      // petición de token completa: el conector existe y el grant está vivo,
+      // pero nunca se llega a pedir el token.
+      //
+      // Así se rompió el standup del 2026-08-25. La versión del SDK lleva
+      // fijada en 0.4.2 desde el 2026-07-29, así que lo que cambió fue la
+      // política del lado de Vercel, no el código. Saltarse el aprovisionamiento
+      // no pierde nada aquí y quita la dependencia de esa política.
+      autoProvision: false,
       connector: requiredEnv(
         "JIRA_CONNECTOR_UID",
         "Es el UID del conector de Vercel Connect para Atlassian, ej. " +
