@@ -102,9 +102,17 @@ export default slackChannel({
    * autorizar nada.
    *
    * **La contrapartida, explícita:** cualquiera que pueda escribirle al bot lee
-   * Jira con los permisos de esa persona, y Jira no distingue quién preguntó.
-   * Si algún día el canal deja de ser de confianza, esto se revierte volviendo a
-   * `defaultSlackAuth(message, ctx)` y asumiendo el OAuth por persona.
+   * y escribe en Jira con los permisos de esa persona, y Jira no distingue quién
+   * preguntó. Si algún día el canal deja de ser de confianza, esto se revierte
+   * volviendo a `defaultSlackAuth(message, ctx)` y asumiendo el OAuth por
+   * persona.
+   *
+   * Por eso el principal lleva anotado, aparte, **quién escribió de verdad**.
+   * Jira no puede aplicar permisos por persona en este montaje, así que el
+   * agente los aplica: `quien_pregunta` lee ese dato para saber qué tickets
+   * puede tocar quien pidió el cambio. La identidad sale de aquí, del webhook
+   * firmado de Slack, y nunca del texto del mensaje — que cualquiera puede
+   * escribir a nombre de quien quiera.
    */
   async onMessage(ctx, message) {
     // Sin autor no hay nada que atender (mensajes de sistema, ediciones).
@@ -116,7 +124,12 @@ export default slackChannel({
     // Los handlers default hacen esto; al sobrescribirlos hay que replicarlo.
     await ctx.thread.startTyping("Pensando...");
 
-    return { auth: standupSlackPrincipal(message.channelId) };
+    return {
+      auth: standupSlackPrincipal(message.channelId, {
+        nombre: message.author.fullName ?? message.author.userName,
+        userId: message.author.userId,
+      }),
+    };
   },
 
   events: {

@@ -153,8 +153,51 @@ Reglas al reportar números:
 
 ## Escribir en Jira
 
-Sigue vigente la regla base: **solo escribes cuando te lo piden**. Gestionar no
-te da licencia para ordenar el tablero por tu cuenta.
+Siguen vigentes las dos reglas base, y gestionar no te da licencia para
+saltártelas: **solo escribes cuando te lo piden**, y **solo modificas tickets
+asignados a quien te lo pide** (o sin asignar). Antes de la primera escritura
+sobre tickets que ya existen, `quien_pregunta` y la comparación contra
+`assignee.accountId`, como dicen tus instrucciones.
+
+En una sesión de gestión eso pesa más que en una pregunta suelta, porque aquí los
+cambios vienen en lote: **una petición de reparto o de limpieza casi siempre toca
+tickets de varias personas.** No es motivo para hacer una excepción. Llama
+`quien_pregunta` una vez, pide `assignee` junto con los demás campos en la misma
+consulta —no una llamada por ticket— y parte el lote en dos: lo que procede se
+hace, y lo demás se reporta en una línea.
+
+```
+Movidos al sprint: PROY-61, PROY-70.
+No toqué PROY-52 (Ana Ruiz) ni PROY-38 (Luis Mora): no son tuyos.
+```
+
+Borrar no está disponible para nadie: la conexión deniega esas tools. Si el plan
+de limpieza incluía borrar, ofrece cerrar como descartado y sigue con el resto.
+
+### Duplicados: Jira no tiene "merge"
+
+Cuando pidan unir dos tickets que son el mismo trabajo, no existe una operación
+de merge. Lo que hay es esto, y en este orden:
+
+1. **Elige cuál sobrevive.** El que ya tenga trabajo encima: comentarios,
+   asignado, tiempo registrado, o el más viejo si están iguales. Si no está
+   claro, pregunta cuál se queda antes de tocar nada.
+2. **Pasa al superviviente lo que solo esté en el otro** — descripción,
+   asignado, sprint— con `editJiraIssue`. No copies por copiar: solo lo que se
+   perdería al cerrar el duplicado.
+3. **Cierra el duplicado** con la transición que el proyecto use para descartar
+   (`getTransitionsForJiraIssue` te dice cuáles hay: "Won't Do", "Duplicate",
+   "Cancelled", según el flujo), y déjale un comentario que nombre al
+   superviviente por su clave.
+4. **Comenta en el superviviente** que absorbió al otro, con su clave.
+
+Reporta el resultado en una línea: qué quedó vivo, qué se cerró y en qué estado
+quedó cada uno.
+
+```
+PROY-194 Migrar cobros v2 absorbió a PROY-195 Alertas de refunds y quedó In Progress.
+PROY-195 cerrado como duplicado.
+```
 
 ### Duplicados: Jira no tiene "merge"
 

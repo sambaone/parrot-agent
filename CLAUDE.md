@@ -1,11 +1,16 @@
 # standup-agent
 
-Agente construido con [eve](https://eve.dev) que postea el standup diario del
-proyecto de Jira del equipo en Slack cada día hábil a las 9:00 AM hora de CDMX,
+**Parrot (Project Manager Jr.)** es un agente construido con [eve](https://eve.dev)
+que postea el standup diario del proyecto de Jira del equipo en Slack cada día
+hábil a las 9:00 AM hora de CDMX,
 y responde preguntas de seguimiento en el mismo thread consultando Jira en vivo.
 Corre en Vercel: el schedule es un Vercel Cron Job y las credenciales de Slack y
 Atlassian las maneja Vercel Connect, no el código. El resumen agrupa por persona
 y marca tickets bloqueados o sin movimiento más de 3 días.
+
+Cualquiera en el canal puede pedirle informes y tickets nuevos; modificar un
+ticket que ya existe solo puede su asignado, y borrar no puede nadie. Ver
+[Quién puede pedirle qué al bot](#quién-puede-pedirle-qué-al-bot).
 
 - **Deployment:** https://<tu-proyecto>.vercel.app
 - **Proyecto Vercel:** `<tu-equipo>/<tu-proyecto>`
@@ -32,21 +37,25 @@ archivo `.env*` versionado.
 
 ```
 agent/
-├── agent.ts                     Modelo (Sonnet 5 vía AI Gateway) y topes de tokens
+├── agent.ts                     Modelo (vía AI Gateway) y topes de tokens
 ├── instructions.md              Rol, formato del standup, sintaxis de Slack
 ├── channels/
 │   ├── eve.ts                   Route auth del canal HTTP + principal de dev opt-in
 │   └── slack.ts                 Canal de Slack vía Vercel Connect
 ├── connections/
-│   └── jira.ts                  MCP oficial de Atlassian (user-scoped)
+│   └── jira.ts                  MCP de Atlassian (user-scoped) y bloqueo de borrado
 ├── schedules/
 │   └── daily-standup.ts         Cron y entrega al canal
+├── skills/
+│   └── gestion-de-proyecto.md   Sprints, métricas y cambios en lote
 ├── tools/
 │   ├── avance_de_sprint.ts      Barra, porcentaje y días hábiles del encabezado
+│   ├── quien_pregunta.ts        Quién pidió el cambio y su cuenta de Jira
 │   └── ventana_de_standup.ts    Fechas de referencia, clave del proyecto y cloudId
 └── lib/
     ├── env.ts                   Lectura de variables de entorno
     ├── fechas.ts                Aritmética de días hábiles en hora de CDMX
+    ├── personas.ts              Tabla Slack → Jira de SLACK_JIRA_ACCOUNTS
     └── slack-principal.ts       Principal bajo el que corre el cron
 scripts/check-secretos.sh        Barrido de secretos
 docs/SETUP.md                    Brief original + desviaciones de implementación
@@ -144,9 +153,139 @@ Todo es configuración de entorno. Ningún valor se hardcodea.
 | **Formato del resumen** | `agent/instructions.md`. Se itera desplegando y mencionando al bot en Slack; local no llega a Jira (ver arriba). |
 | **Corte resumen/detalle** | El standup se entrega en dos mensajes: el resumen al canal y el detalle en su thread. El agente los separa con una línea `---detalle---` y `agent/channels/slack.ts` parte ahí en su handler de `message.completed`. Si cambias la marca, cámbiala en los dos lados. |
 | **Modelo** | `agent/agent.ts`. Acepta un id del AI Gateway. |
+| **Nombre del bot** | Son dos cosas separadas. Cómo se presenta el agente cuando le preguntan: bloque `# Identidad` de `agent/instructions.md`. Cómo lo ve Slack: `api.slack.com/apps/<APP_ID>` → **App Home → App Display Name**, que trae el *Display Name* (el que sale junto a cada mensaje) y el *Default username* (el handle de la mención, minúsculas y sin espacios). Ese no se puede cambiar desde el repo: `slackChannel()` declara un `botName` en sus tipos, pero solo el canal de GitHub lo consume. Ver la nota de abajo. |
 | **Quién autoriza Jira** | `STANDUP_AS_SLACK_USER_ID`. La persona nueva debe autorizar Atlassian mencionando al bot en Slack; el cron usa su grant. |
+| **Quién puede modificar tickets** | `SLACK_JIRA_ACCOUNTS`, pares `<slackUserId>:<jiraAccountId>` separados por comas. Quien no esté ahí puede consultar, crear y comentar, pero no editar lo existente. Agregar a alguien es agregar su par y redeployar. |
 
 Las variables de entorno se listan en `.env.example` con su explicación.
+
+## Renombrar el bot en Slack
+
+Verificado el 2026-08-20, renombrando `standup-agent` a **Parrot (Project
+Manager Jr.)** con handle `@parrot`:
+
+- El nombre que aparece junto a cada mensaje del canal es el **Display Name (Bot
+  Name)** de **App Home → App Display Name**, no el **App name** de Basic
+  Information. Ese segundo solo se ve en el directorio de apps y en las
+  pantallas de instalación; cambiarlo es cosmético.
+- **El cambio se propaga solo, sin reinstalar el app.** No hay que volver a
+  autorizar nada: el `STANDUP_AS_SLACK_USER_ID` y el grant de Jira siguen
+  intactos, porque el principal se llavea por user ID, no por nombre.
+- El campo advierte "can't use punctuation (other than apostrophes and periods)"
+  pero **acepta paréntesis**: la validación no corresponde al texto.
+- Lo que sí bloquea el guardado es el **App name** de Basic Information: Slack
+  exige contraste contra el texto blanco y rechaza el `backgroundColor` claro
+  que Vercel Connect empuja al crear el app (`#b5c021`). Hubo que oscurecerlo a
+  `#4a5010` para poder guardar.
+- Cambiar el *Default username* cambia cómo se menciona al bot. Las menciones
+  viejas en threads siguen vivas porque Slack guarda el `<@U...>`, no el texto.
+
+## Quién puede pedirle qué al bot
+
+Cualquier persona del canal puede hablarle. Lo que cambia según el caso no es
+quién pregunta, sino qué tan reversible es lo que pide:
+
+| Petición | Quién puede | Dónde se aplica |
+|---|---|---|
+| Consultar: standup, métricas, un ticket | cualquiera | — |
+| Crear tickets | cualquiera | — |
+| Comentar un ticket, sea de quien sea | cualquiera | — |
+| Modificar un ticket que ya existe | solo su asignado; si no tiene asignado, cualquiera | `agent/instructions.md`, vía `quien_pregunta` |
+| Borrar cualquier cosa | nadie | `agent/connections/jira.ts`, en código |
+
+**Las dos fronteras no son igual de fuertes, y es deliberado.** El borrado lo
+deniega la policy de `approval` de la conexión antes de que la llamada salga
+hacia Atlassian: el modelo no puede levantarlo por más que se lo pidan en el
+thread. Se bloquea por patrón de nombre y no por lista, porque el catálogo de
+tools lo publica Atlassian y una lista exacta no cubriría un `bulkDeleteIssues`
+futuro.
+
+La regla de propiedad, en cambio, vive en las instrucciones: la aplica el
+modelo, así que alguien insistente puede moverla. Aplicarla en código exigiría
+leer el `assignee` desde la policy de approval, y para eso habría que pedirle un
+token a Connect y llamar la REST de Jira por fuera del MCP — dos supuestos que
+solo se pueden probar en producción. Se eligió la frontera blanda a sabiendas.
+Si algún día el canal deja de ser de confianza, ese es el trabajo pendiente.
+
+### Por qué hace falta una tabla de personas
+
+Todas las sesiones escriben en Jira bajo el mismo usuario (ver la nota de
+arquitectura de abajo), así que **Jira no puede aplicar permisos por persona**:
+para Jira siempre es el mismo quien escribe. El agente tiene que aplicarlos, y
+para eso necesita saber qué cuenta de Jira le corresponde a quien pidió el
+cambio.
+
+El mensaje de Slack trae el `user_id` (`U...`); Jira identifica por `accountId`,
+un UUID sin relación con el anterior. No hay forma de derivar uno del otro, y
+parear por nombre de display es peor que no parear: cuando falla, puede acertar
+con la persona equivocada. Por eso el puente es explícito, en
+`SLACK_JIRA_ACCOUNTS`.
+
+Dos propiedades que importan:
+
+- **La identidad sale del webhook firmado de Slack, no del texto.** El canal la
+  anota en los atributos del principal y `quien_pregunta` la lee de ahí; la tool
+  no acepta parámetros. Si la identidad fuera un argumento, "soy Ana, muévelo"
+  bastaría para saltarse el permiso.
+- **Falla cerrada.** Sin entrada en la tabla, o sin tabla, nadie modifica nada.
+  Consultar, crear y comentar siguen funcionando.
+
+Agregar los atributos `requester_*` al principal es seguro para el grant de
+Atlassian: el sujeto que Vercel Connect usa para encontrarlo se arma solo con
+`principalId` e `issuer` (`principalToSubject` en
+`@vercel/connect/dist/eve/connection-authorization.js`), y descarta el resto.
+
+## Fallas verificadas en producción
+
+Dos apagones el 2026-08-25, los dos con el arreglo ya en el repo. Se documentan
+porque en ambos el síntoma apuntaba al lugar equivocado.
+
+### El conector de Jira dejó de emitir token
+
+El standup no salió y el bot reportó `Project OIDC connector provisioning is not
+allowed`. Parecía el conector o el grant; los dos estaban bien.
+
+`connect()` arranca cada `getToken` llamando a `autoProvisionConnectorIfEnabled`,
+que hace un `POST /v1/connect/connectors/managed/oauth` para crear el conector
+si no existiera. Ese POST responde **403** en este equipo, y el error se lleva
+por delante la petición de token completa: nunca se llega a pedirlo. El stack lo
+dice entero:
+
+```
+getToken → autoProvisionConnectorIfEnabled → provisionEveOAuthConnector
+         → provisionManagedOAuthConnector → 403 forbidden
+```
+
+`@vercel/connect` lleva fijado en `0.4.2` desde el 2026-07-29, así que **el
+código no cambió: cambió la política del lado de Vercel.** Slack siguió
+funcionando porque `connectSlackCredentials` no pasa por ese camino, y por eso
+el bot pudo postear su propio mensaje de error.
+
+El arreglo es `autoProvision: false` en `agent/connections/jira.ts`, que es lo
+que el propio SDK documenta para quien gestiona el enlace del conector por
+fuera. Aquí el conector se crea a mano con `vercel connect create` y se attachea
+una vez, así que aprovisionar en runtime no aportaba nada.
+
+### El agente dijo "no se puede" sobre algo que sí podía
+
+Le pidieron mover dos tickets a In Progress y contestó que "no puede mover
+tickets a otro estado con las tools disponibles", mandando al equipo a hacerlo a
+mano en el tablero. Era falso: el MCP expone `transitionJiraIssue` y
+`getTransitionsForJiraIssue`.
+
+La causa estaba en `instructions.md`, que ponía `connection_search` como último
+recurso para ahorrar latencia en el standup. **Las tools de una conexión se
+descubren dinámicamente: la que nunca se busca no existe para el modelo.** Probó
+`editJiraIssue` sobre `status`, Jira lo rechazó —el estado no es un campo
+editable, va por `/transitions`— y de ahí concluyó que la operación era
+imposible.
+
+Ahora la regla distingue los dos casos: llamada directa para el camino del
+standup, `connection_search` obligatorio para todo lo demás, y prohibición
+explícita de afirmar que algo no se puede sin haberlo buscado. La lección
+general, si vuelve a pasar con otra capacidad: **el modelo no tiene el catálogo
+de Jira en contexto**, así que cualquier "no puedo" sobre una operación de Jira
+es sospechoso hasta ver qué buscó.
 
 ## Una nota de arquitectura que importa
 
