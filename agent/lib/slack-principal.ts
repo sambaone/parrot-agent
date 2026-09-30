@@ -29,6 +29,16 @@ type SessionAuthContext = ScheduleHandlerArgs["appAuth"];
  * la MISMA autorización de Atlassian que esa persona otorgó una vez desde
  * Slack. Vercel Connect se encarga del refresh, así que no hay que repetirla.
  *
+ * ## Por qué los atributos extra no rompen nada
+ *
+ * `requester_*` identifica a quien escribió, que casi nunca es la persona del
+ * `STANDUP_AS_SLACK_USER_ID`. Agregarlos es seguro porque el sujeto que Vercel
+ * Connect usa para buscar el grant se arma solo con `principalId` e `issuer`:
+ * `principalToSubject` en `@vercel/connect/dist/eve/connection-authorization.js`
+ * devuelve `{ type, id, issuer }` y descarta los atributos. Mientras esos dos
+ * campos no cambien, el cron y las sesiones de Slack siguen encontrando la
+ * misma autorización de Atlassian.
+ *
  * ## Cuidado al actualizar eve
  *
  * El formato de abajo replica `buildSlackAuthContext` de eve. La caché de
@@ -38,7 +48,22 @@ type SessionAuthContext = ScheduleHandlerArgs["appAuth"];
  * `node_modules/eve/dist/src/public/channels/slack/auth.js` y confirma que
  * `issuer` y `principalId` sigan armándose igual.
  */
-export function standupSlackPrincipal(channelId: string): SessionAuthContext {
+/**
+ * Quien escribió el mensaje que disparó esta sesión.
+ *
+ * No cambia bajo qué identidad se llama a Jira —eso sigue siendo el usuario del
+ * standup— sino que la deja anotada en la sesión para que las tools sepan a
+ * quién atender. Ver la nota de abajo sobre por qué esto no rompe el grant.
+ */
+export interface SolicitanteDeSlack {
+  readonly userId: string;
+  readonly nombre?: string;
+}
+
+export function standupSlackPrincipal(
+  channelId: string,
+  solicitante?: SolicitanteDeSlack,
+): SessionAuthContext {
   const teamId = requiredEnv(
     "SLACK_TEAM_ID",
     "Es el ID del workspace de Slack, empieza con T. Lo ves en la URL de " +
@@ -57,6 +82,16 @@ export function standupSlackPrincipal(channelId: string): SessionAuthContext {
       channel_id: channelId,
       team_id: teamId,
       user_id: userId,
+      // Quién pidió las cosas, que casi nunca es `user_id`. Lo lee la tool
+      // `quien_pregunta` para decidir qué tickets puede tocar esa persona.
+      ...(solicitante
+        ? {
+            requester_user_id: solicitante.userId,
+            ...(solicitante.nombre
+              ? { requester_name: solicitante.nombre }
+              : {}),
+          }
+        : {}),
     },
     authenticator: "slack-webhook",
     issuer: `slack:${teamId}`,

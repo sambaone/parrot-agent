@@ -55,6 +55,24 @@ export function diaHabilAnterior(fecha: string): string {
   return anterior;
 }
 
+/**
+ * Días hábiles en el intervalo `(desde, hasta]`: excluye el día de partida e
+ * incluye el de llegada. Con `hasta` anterior o igual a `desde` devuelve 0.
+ *
+ * Esa asimetría es a propósito: la usa el encabezado del standup para decir
+ * cuántos días de trabajo quedan antes de que cierre el sprint. Hoy ya se está
+ * gastando, así que no cuenta; el día del cierre sí, porque todavía se trabaja.
+ */
+export function diasHabilesEntre(desde: string, hasta: string): number {
+  let dias = 0;
+  let cursor = sumarDias(desde, 1);
+  while (cursor <= hasta) {
+    if (esDiaHabil(cursor)) dias++;
+    cursor = sumarDias(cursor, 1);
+  }
+  return dias;
+}
+
 /** Nombre del día de la semana en español, ej. "miércoles". */
 export function nombreDelDia(fecha: string): string {
   return new Intl.DateTimeFormat("es-MX", {
