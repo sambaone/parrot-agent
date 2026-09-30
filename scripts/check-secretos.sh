@@ -89,7 +89,8 @@ echo "── 7. Ningún identificador interno, en archivos NI en mensajes de com
 #
 # Por eso esta comprobación mira las dos superficies: los archivos versionados y
 # los mensajes de todos los commits.
-identificadores='\b[TUCA][0-9A-Z]{8,12}\b|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\b(prj|team|scl|sca|store|ir)_[A-Za-z0-9]{10,}\b|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|[a-z0-9-]+\.atlassian\.net|claude\.ai/code/session_'
+# Patrones inequívocos: si aparecen, son reales.
+identificadores='[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\b(prj|team|scl|sca|store|ir)_[A-Za-z0-9]{10,}\b|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|[a-z0-9-]+\.atlassian\.net|claude\.ai/code/session_'
 
 # Placeholders que la documentación usa a propósito. Si agregas uno nuevo a los
 # docs, agrégalo aquí o el script lo marcará como hallazgo.
@@ -100,9 +101,23 @@ hallazgos_id=$(
     git log --all --format='commit %h: %s%n%b' 2>/dev/null | grep -nE "$identificadores"
   } | grep -vE "$permitidos" || true
 )
-if [ -n "$hallazgos_id" ]; then
+
+# Los ids de Slack (T…, U…, C…, A…) se buscan aparte porque su forma choca con
+# las palabras en mayúsculas: `COPYRIGHT` y `CONNECTION` la cumplen igual de
+# bien que un id real. Lo que las distingue es que un id real SIEMPRE trae
+# dígitos, así que se extraen los candidatos y se descarta el que no tenga
+# ninguno. Sin este filtro la licencia MIT dispara la alarma sola, y una alarma
+# que grita sin razón se termina ignorando.
+ids_slack=$(
+  { git ls-files -z | xargs -0 grep -ohEI '\b[TUCA][0-9A-Z]{8,12}\b' 2>/dev/null
+    git log --all --format='%s%n%b' 2>/dev/null | grep -ohE '\b[TUCA][0-9A-Z]{8,12}\b'
+  } | grep -E '[0-9]' | sort -u | grep -vE "$permitidos" || true
+)
+
+if [ -n "$hallazgos_id" ] || [ -n "$ids_slack" ]; then
   fallo "Identificadores internos (revisa si son reales o placeholders):"
-  printf '    %s\n' "$hallazgos_id"
+  [ -n "$hallazgos_id" ] && printf '    %s\n' "$hallazgos_id"
+  [ -n "$ids_slack" ] && printf '    id tipo Slack: %s\n' "$ids_slack"
   echo "    Si están en un mensaje de commit, borrarlos de un archivo NO basta:"
   echo "    hay que reescribir el historial."
 else
