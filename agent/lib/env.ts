@@ -51,7 +51,7 @@ export function requiredEnvInProduction(
   if (process.env.VERCEL) return requiredEnv(name, hint);
 
   console.warn(
-    `[standup-agent] ${name} no está configurada; usando el placeholder de ` +
+    `[parrot-agent] ${name} no está configurada; usando el placeholder de ` +
       `desarrollo "${devPlaceholder}". Slack no funciona en local.`,
   );
   return devPlaceholder;

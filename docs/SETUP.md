@@ -8,7 +8,7 @@
 
 ---
 
-# standup-agent — Brief de ejecución para Claude Code
+# parrot-agent — Brief de ejecución para Claude Code
 
 Eres el ingeniero responsable de construir este proyecto de inicio a fin. Al leer este archivo, **ejecuta las fases en orden, sin esperar instrucciones adicionales**, salvo en los puntos marcados como `[PAUSA]`, donde debes detenerte y pedirle al responsable del proyecto que complete un paso manual (logins, autorizaciones OAuth).
 
@@ -96,7 +96,7 @@ url: https://mcp.atlassian.com/v1/mcp
 ```
 La autenticación OAuth la maneja Vercel Connect; no manejes tokens en código.
 
-**`agent/channels/slack.ts`** — canal Slack según los docs (`slackChannel({ botName: "standup-agent" })` o equivalente actual). Sin `SLACK_BOT_TOKEN` ni signing secrets: eve los resuelve vía Vercel Connect.
+**`agent/channels/slack.ts`** — canal Slack según los docs (`slackChannel({ botName: "parrot-agent" })` o equivalente actual). Sin `SLACK_BOT_TOKEN` ni signing secrets: eve los resuelve vía Vercel Connect.
 
 **`agent/schedules/daily-standup.ts`** — schedule con:
 - `cron: "0 15 * * 1-5"` (Vercel Cron corre en UTC; 15:00 UTC = 9:00 AM CDMX, sin horario de verano)
@@ -126,7 +126,7 @@ Itera hasta que el resumen salga bien. Commit: `feat: formato de standup validad
    Si aparece cualquier valor real: elimínalo, y si ya está en el historial, reescríbelo (`git filter-repo`) ANTES de subir nada.
 2. Crea el repo privado y sube:
    ```bash
-   gh repo create standup-agent --private --source=. --push
+   gh repo create parrot-agent --private --source=. --push
    ```
 3. Confirma con `gh repo view --json visibility` que sea `PRIVATE`.
 

@@ -1,4 +1,4 @@
-# standup-agent
+# parrot-agent
 
 **Parrot (Project Manager Jr.)** es un agente construido con [eve](https://eve.dev)
 que postea el standup diario de un proyecto de Jira en Slack cada día
@@ -160,7 +160,7 @@ Las variables de entorno se listan en `.env.example` con su explicación.
 
 ## Renombrar el bot en Slack
 
-Verificado el 2026-08-20, renombrando `standup-agent` a **Parrot (Project
+Verificado el 2026-08-20, renombrando `parrot-agent` a **Parrot (Project
 Manager Jr.)** con handle `@parrot`:
 
 - El nombre que aparece junto a cada mensaje del canal es el **Display Name (Bot

@@ -1,4 +1,4 @@
-# standup-agent
+# parrot-agent
 
 Toda la documentación del proyecto está en [CLAUDE.md](./CLAUDE.md): estructura,
 comandos de desarrollo, cómo cambiar horario/canal/proyecto, y la regla

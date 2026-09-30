@@ -59,8 +59,8 @@ export default slackChannel({
     requiredEnvInProduction(
       "SLACK_CONNECTOR_UID",
       "Es el UID del conector de Vercel Connect para Slack, ej. " +
-        "slack/standup-agent. Lo devuelve `vercel connect create slack --triggers`.",
-      "slack/standup-agent",
+        "slack/parrot-agent. Lo devuelve `vercel connect create slack --triggers`.",
+      "slack/parrot-agent",
     ),
   ),
 
