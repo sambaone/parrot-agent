@@ -176,6 +176,10 @@ Manager Jr.)** con handle `@parrot`:
   exige contraste contra el texto blanco y rechaza el `backgroundColor` claro
   que Vercel Connect empuja al crear el app (`#b5c021`). Hubo que oscurecerlo a
   `#4a5010` para poder guardar.
+- **El avatar vive en el repo**, en `assets/parrot.png`, y se sube a mano en la
+  consola del app (**Basic Information → Display Information**). Tenerlo
+  versionado es a propósito: si hay que reinstalar el app o recrear el conector,
+  la imagen no depende de que alguien la tenga en su carpeta de descargas.
 - Cambiar el *Default username* cambia cómo se menciona al bot. Las menciones
   viejas en threads siguen vivas porque Slack guarda el `<@U...>`, no el texto.
 

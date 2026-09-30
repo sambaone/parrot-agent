@@ -1,9 +1,15 @@
+<img src="assets/parrot.png" alt="Parrot" width="130" align="right">
+
 # standup-agent
 
 Un agente que postea el standup diario de un proyecto de Jira en Slack cada día
 hábil, y después responde preguntas de seguimiento en el mismo thread
 consultando Jira en vivo. También crea tickets, mide el sprint y mueve trabajo,
 si se lo piden.
+
+Se llama **Parrot** y ese de ahí es su avatar: `assets/parrot.png` es la misma
+imagen que se sube al app de Slack, para que el bot se vea igual en el canal que
+en el repositorio.
 
 Está construido con [eve](https://eve.dev) y corre en Vercel. No maneja ningún
 token: las credenciales de Slack y de Atlassian las resuelve Vercel Connect.

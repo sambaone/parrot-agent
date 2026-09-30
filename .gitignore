@@ -20,8 +20,10 @@ dist
 .env*
 !.env.example
 
-# Capturas y archivos sueltos que no son del proyecto
+# Capturas y archivos sueltos que no son del proyecto. Las imágenes que SÍ son
+# del proyecto viven en assets/ y se salvan con la excepción de abajo.
 *.png
 *.jpg
 *.jpeg
 *.gif
+!assets/*.png
