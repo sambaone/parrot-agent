@@ -79,8 +79,39 @@ else
 fi
 
 echo
+echo "── 7. Ningún identificador interno, en archivos NI en mensajes de commit ──"
+# Las comprobaciones 4 y 5 buscan FORMAS DE TOKEN. Eso deja pasar lo que no es
+# una credencial pero sí identifica al equipo: el id del workspace de Slack, el
+# cloudId del sitio de Atlassian, un correo personal, el slug del proyecto en
+# Vercel. Una auditoría previa a hacer el repo público encontró exactamente eso
+# —un team id y un user id de Slack— dentro de un MENSAJE de commit, donde
+# ningún barrido de archivos lo habría visto nunca.
+#
+# Por eso esta comprobación mira las dos superficies: los archivos versionados y
+# los mensajes de todos los commits.
+identificadores='\b[TUCA][0-9A-Z]{8,12}\b|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\b(prj|team|scl|sca|store|ir)_[A-Za-z0-9]{10,}\b|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|[a-z0-9-]+\.atlassian\.net|claude\.ai/code/session_'
+
+# Placeholders que la documentación usa a propósito. Si agregas uno nuevo a los
+# docs, agrégalo aquí o el script lo marcará como hallazgo.
+permitidos='U01ABCDEF|U01ABC|U02DEF|U02GHIJKL|noreply@|users\.noreply\.github\.com|@example\.|TEAM_ID|USER_ID'
+
+hallazgos_id=$(
+  { git ls-files -z | xargs -0 grep -nEI "$identificadores" 2>/dev/null
+    git log --all --format='commit %h: %s%n%b' 2>/dev/null | grep -nE "$identificadores"
+  } | grep -vE "$permitidos" || true
+)
+if [ -n "$hallazgos_id" ]; then
+  fallo "Identificadores internos (revisa si son reales o placeholders):"
+  printf '    %s\n' "$hallazgos_id"
+  echo "    Si están en un mensaje de commit, borrarlos de un archivo NO basta:"
+  echo "    hay que reescribir el historial."
+else
+  ok "Sin identificadores internos"
+fi
+
+echo
 if [ "$fallas" -eq 0 ]; then
-  printf '\033[32mLIMPIO — %s comprobaciones sin hallazgos.\033[0m\n' 6
+  printf '\033[32mLIMPIO — %s comprobaciones sin hallazgos.\033[0m\n' 7
   exit 0
 fi
 printf '\033[31m%s comprobación(es) con hallazgos. NO hagas push.\033[0m\n' "$fallas"

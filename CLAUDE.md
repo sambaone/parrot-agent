@@ -1,7 +1,7 @@
 # standup-agent
 
 **Parrot (Project Manager Jr.)** es un agente construido con [eve](https://eve.dev)
-que postea el standup diario del proyecto de Jira del equipo en Slack cada día
+que postea el standup diario de un proyecto de Jira en Slack cada día
 hábil a las 9:00 AM hora de CDMX,
 y responde preguntas de seguimiento en el mismo thread consultando Jira en vivo.
 Corre en Vercel: el schedule es un Vercel Cron Job y las credenciales de Slack y
@@ -12,8 +12,7 @@ Cualquiera en el canal puede pedirle informes y tickets nuevos; modificar un
 ticket que ya existe solo puede su asignado, y borrar no puede nadie. Ver
 [Quién puede pedirle qué al bot](#quién-puede-pedirle-qué-al-bot).
 
-- **Deployment:** https://<tu-proyecto>.vercel.app
-- **Proyecto Vercel:** `<tu-equipo>/<tu-proyecto>`
+- **Deployment:** el que te dé Vercel al desplegar (`<proyecto>.vercel.app`).
 
 ## Regla permanente: cero secretos en el repo
 
@@ -322,7 +321,7 @@ El arreglo, una sola vez por organización, en admin.atlassian.com →
 https://connect.vercel.com/**
 ```
 
-Hecho en la org `<org-de-atlassian>` el 2026-07-30. Si el agente se despliega contra otra
+Hecho una vez en la organización de Atlassian del equipo. Si el agente se despliega contra otra
 organización de Atlassian, hay que repetirlo ahí.
 
 Vale la pena saber el alcance de lo que se autoriza: `connect.vercel.com` es

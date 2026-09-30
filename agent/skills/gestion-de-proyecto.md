@@ -195,8 +195,8 @@ Reporta el resultado en una línea: qué quedó vivo, qué se cerró y en qué e
 quedó cada uno.
 
 ```
-PROY-194 Migrar cobros v2 absorbió a PROY-195 Alertas de refunds y quedó In Progress.
-PROY-195 cerrado como duplicado.
+PROY-61 Migrar cobros v2 absorbió a PROY-62 Alertas de refunds y quedó In Progress.
+PROY-62 cerrado como duplicado.
 ```
 
 ### Duplicados: Jira no tiene "merge"
@@ -220,8 +220,8 @@ Reporta el resultado en una línea: qué quedó vivo, qué se cerró y en qué e
 quedó cada uno.
 
 ```
-PROY-194 Migrar cobros v2 absorbió a PROY-195 Alertas de refunds y quedó In Progress.
-PROY-195 cerrado como duplicado.
+PROY-61 Migrar cobros v2 absorbió a PROY-62 Alertas de refunds y quedó In Progress.
+PROY-62 cerrado como duplicado.
 ```
 
 ### Confirma antes de un lote
