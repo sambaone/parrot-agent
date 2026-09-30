@@ -19,3 +19,9 @@ dist
 .env.*
 .env*
 !.env.example
+
+# Capturas y archivos sueltos que no son del proyecto
+*.png
+*.jpg
+*.jpeg
+*.gif
